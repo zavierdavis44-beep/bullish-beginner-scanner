@@ -3,8 +3,8 @@ name: Build & Release App
 on:
   push:
     tags:
-      - 'v*.*.*'      # e.g. v0.1.7
-  workflow_dispatch:
+      - 'v*.*.*'      # run when you push a version tag
+  workflow_dispatch:  # allow manual runs from the Actions tab
 
 jobs:
   build:
@@ -13,71 +13,55 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macos-13 = Intel runner (x64) for broader compatibility
-        os: [windows-latest, macos-13, ubuntu-latest]
-
-    env:
-      # Disable codesign/notarization; keep electron-builder from downloading winCodeSign
-      CSC_IDENTITY_AUTO_DISCOVERY: false
-      ELECTRON_BUILDER_CACHE: ${{ runner.temp }}/.cache/electron-builder
-      # Sometimes electron-builder looks for GH token even when we don't auto-publish
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        include:
+          - os: windows-latest
+            build_cmd: npm run build:win
+            artifact_glob: "dist/*.{exe,msi}"
+          - os: macos-latest
+            build_cmd: npm run build:mac
+            artifact_glob: "dist/*.{dmg,zip,pkg}"
+          - os: ubuntu-latest
+            build_cmd: npm run build:linux
+            artifact_glob: "dist/*.{AppImage,deb,rpm,tar.gz}"
 
     steps:
-      - name: Checkout
+      - name: Checkout repo
         uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: npm
 
       - name: Install deps
         run: npm ci
 
-      # Build per-OS with the same extraMetadata.main you used
-      - name: Build Windows
-        if: runner.os == 'Windows'
-        run: |
-          npm run build
-          npx electron-builder --win -c.extraMetadata.main=electron/main.cjs
+      - name: Build
+        run: ${{ matrix.build_cmd }}
 
-      - name: Build macOS
-        if: runner.os == 'macOS'
-        run: |
-          npm run build
-          npx electron-builder --mac -c.extraMetadata.main=electron/main.cjs
-
-      - name: Build Linux
-        if: runner.os == 'Linux'
-        run: |
-          npm run build
-          npx electron-builder --linux -c.extraMetadata.main=electron/main.cjs
-
-      # Upload everything produced in /dist for this OS
-      - name: Upload artifacts
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ runner.os }}-dist
-          path: dist/**
+          name: ${{ runner.os }}-installer
+          path: ${{ matrix.artifact_glob }}
+          if-no-files-found: error
 
   release:
     name: Create GitHub Release
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: '*-dist'
-          merge-multiple: true
           path: artifacts
 
-      - name: Create/Update Release and upload files
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            artifacts/**
+          files: artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
