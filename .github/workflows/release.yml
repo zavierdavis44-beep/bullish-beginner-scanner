@@ -1,95 +1,11 @@
-name: Build & Release App
-
-on:
-  push:
-    tags:
-      - 'v*.*.*'     # run on version tags like v0.1.15
-  workflow_dispatch:
-
 jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
 
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install deps
-        run: npm ci
-
-      # ---- build your web bundle (vite) ----
-      - name: Build web
-        run: npm run build
-
-      # ---- package Electron per OS ----
-      - name: Package (Windows)
-        if: matrix.os == 'windows-latest'
-        run: npm run build:win
-
-      - name: Package (macOS)
-        if: matrix.os == 'macos-latest'
-        run: npm run build:mac
-
-      - name: Package (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: npm run build:linux
-
-      # ---- upload the produced installers as artifacts (so the release job can collect them) ----
-      - name: Upload Windows installers
-        if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: win
-          path: |
-            dist/*.exe
-            dist/*.msi
-          if-no-files-found: error
-
-      - name: Upload macOS installers
-        if: matrix.os == 'macos-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: mac
-          path: |
-            dist/*.dmg
-            dist/*.zip
-            dist/*.pkg
-          if-no-files-found: error
-
-      - name: Upload Linux installers
-        if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux
-          path: |
-            dist/*.AppImage
-            dist/*.deb
-            dist/*.rpm
-            dist/*.tar.gz
-          if-no-files-found: error
-
-  release:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: ${{ runner.temp }}/artifacts
-
-      - name: Create GitHub Release (attach all installers)
-        uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          files: ${{ runner.temp }}/artifacts/**/*   # attach everything we downloaded
+    defaults:
+      run:
+        shell: bash
