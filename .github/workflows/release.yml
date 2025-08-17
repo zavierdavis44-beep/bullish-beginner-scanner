@@ -1,11 +1,89 @@
+name: Build & Release App
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'       # run when a semver tag is pushed (e.g. v0.1.18)
+  workflow_dispatch:   # allow manual runs
+
 jobs:
   build:
+    name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [windows-latest, macos-latest, ubuntu-latest]
 
-    defaults:
-      run:
-        shell: bash
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      # IMPORTANT: use npm install (not npm ci) to avoid lockfile mismatch breaks
+      - name: Install deps
+        run: npm install
+
+      - name: Build web
+        run: npm run build
+
+      # Build Electron app (per-OS)
+      - name: Package app
+        run: npm run dist
+
+      # Upload installers per-OS
+      - name: Upload Windows installers
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: win
+          path: |
+            dist/*.exe
+            dist/*.msi
+          if-no-files-found: error
+
+      - name: Upload macOS installers
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.pkg
+          if-no-files-found: error
+
+      - name: Upload Linux installers
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.rpm
+            dist/*.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/artifacts
+
+      - name: Publish GitHub Release (attach installers)
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ runner.temp }}/artifacts/**/*  # attach everything
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
