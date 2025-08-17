@@ -3,8 +3,8 @@ name: Build & Release App
 on:
   push:
     tags:
-      - 'v*.*.*'     # run on version tags (e.g. v0.1.4)
-  workflow_dispatch:  # allow manual runs
+      - 'v*.*.*'      # e.g. v0.1.7
+  workflow_dispatch:
 
 jobs:
   build:
@@ -13,72 +13,71 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: windows-latest
-            build_cmd: npm run build:win
-            artifact_glob: "dist/*.{exe,msi}"
-          - os: macos-latest
-            build_cmd: npm run build:mac
-            artifact_glob: "dist/*.{dmg,zip,pkg}"
-          - os: ubuntu-latest
-            build_cmd: npm run build:linux
-            artifact_glob: "dist/*.{AppImage,deb,rpm,tar.gz}"
+        # macos-13 = Intel runner (x64) for broader compatibility
+        os: [windows-latest, macos-13, ubuntu-latest]
+
+    env:
+      # Disable codesign/notarization; keep electron-builder from downloading winCodeSign
+      CSC_IDENTITY_AUTO_DISCOVERY: false
+      ELECTRON_BUILDER_CACHE: ${{ runner.temp }}/.cache/electron-builder
+      # Sometimes electron-builder looks for GH token even when we don't auto-publish
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
           cache: 'npm'
 
-      - name: Install deps (CI)
+      - name: Install deps
         run: npm ci
 
-      # Avoid auto-detecting code sign tools (keeps builds unsigned but smooth)
-      - name: Disable auto code-sign discovery
-        shell: bash
+      # Build per-OS with the same extraMetadata.main you used
+      - name: Build Windows
+        if: runner.os == 'Windows'
         run: |
-          echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> $GITHUB_ENV
+          npm run build
+          npx electron-builder --win -c.extraMetadata.main=electron/main.cjs
 
-      # -- Windows specific: avoid winCodeSign cache symlink weirdness
-      - name: Prepare Windows env
-        if: startsWith(matrix.os, 'windows')
-        shell: bash
+      - name: Build macOS
+        if: runner.os == 'macOS'
         run: |
-          echo "ELECTRON_BUILDER_DISABLE_UPDATER=false" >> $GITHUB_ENV
+          npm run build
+          npx electron-builder --mac -c.extraMetadata.main=electron/main.cjs
 
-      - name: Build platform
-        run: ${{ matrix.build_cmd }}
+      - name: Build Linux
+        if: runner.os == 'Linux'
+        run: |
+          npm run build
+          npx electron-builder --linux -c.extraMetadata.main=electron/main.cjs
 
-      - name: Upload installers
+      # Upload everything produced in /dist for this OS
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ runner.os }}-installers
-          path: ${{ matrix.artifact_glob }}
-          if-no-files-found: error
+          name: ${{ runner.os }}-dist
+          path: dist/**
 
   release:
     name: Create GitHub Release
     needs: build
     runs-on: ubuntu-latest
-    permissions:
-      contents: write  # needed for gh-release
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          path: ./dist-bundles
+          pattern: '*-dist'
+          merge-multiple: true
+          path: artifacts
 
-      - name: List artifacts (debug)
-        run: ls -R ./dist-bundles
-
-      - name: Publish Release (attach installers)
+      - name: Create/Update Release and upload files
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist-bundles/**/*
+            artifacts/**
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
