@@ -3,17 +3,18 @@ name: Build & Release App
 on:
   push:
     tags:
-      - 'v*.*.*'       # run when a semver tag is pushed (e.g. v0.1.18)
-  workflow_dispatch:   # allow manual runs
+      - "v*.*.*"
 
 jobs:
   build:
-    name: Build (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout repo
@@ -23,67 +24,42 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
-      # IMPORTANT: use npm install (not npm ci) to avoid lockfile mismatch breaks
       - name: Install deps
         run: npm install
 
       - name: Build web
         run: npm run build
 
-      # Build Electron app (per-OS)
-      - name: Package app
+      - name: Package Electron app
         run: npm run dist
 
-      # Upload installers per-OS
-      - name: Upload Windows installers
-        if: matrix.os == 'windows-latest'
+      - name: Upload installers
         uses: actions/upload-artifact@v4
         with:
-          name: win
+          name: ${{ matrix.os }}
           path: |
             dist/*.exe
-            dist/*.msi
-          if-no-files-found: error
-
-      - name: Upload macOS installers
-        if: matrix.os == 'macos-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: mac
-          path: |
             dist/*.dmg
-            dist/*.zip
-            dist/*.pkg
-          if-no-files-found: error
-
-      - name: Upload Linux installers
-        if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux
-          path: |
             dist/*.AppImage
             dist/*.deb
-            dist/*.rpm
+            dist/*.zip
+            dist/*.pkg
             dist/*.tar.gz
           if-no-files-found: error
 
   release:
-    name: Create GitHub Release
-    needs: build
     runs-on: ubuntu-latest
-
+    needs: build
     steps:
-      - name: Download all artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           path: ${{ runner.temp }}/artifacts
 
-      - name: Publish GitHub Release (attach installers)
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ runner.temp }}/artifacts/**/*  # attach everything
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: ${{ runner.temp }}/artifacts/**/* 
