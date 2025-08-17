@@ -1,0 +1,28 @@
+# Node/Electron/Vite
+node_modules/
+dist/
+build/
+out/
+release/
+.vite/
+coverage/
+
+# Electron build outputs
+*.asar
+*.exe
+*.dll
+*.dmg
+*.AppImage
+*.pkg
+*.msi
+*.zip
+*.7z
+
+# Env & OS junk
+.env*
+!.env.example
+.DS_Store
+Thumbs.db
+.vscode/
+npm-debug.log*
+yarn-error.log 

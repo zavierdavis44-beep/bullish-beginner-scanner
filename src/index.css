@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --card-bg: 13 18 28;
+  --card-border: 34 45 65;
+}
+body {
+  @apply bg-slate-950 text-slate-100;
+}
+.card {
+  @apply rounded-2xl border border-slate-800/60 bg-slate-900/60 shadow-lg shadow-black/40 backdrop-blur;
+}
+.glow {
+  box-shadow: 0 0 50px rgba(0, 240, 255, 0.08), inset 0 0 20px rgba(0, 240, 255, 0.06);
+}
+.badge {
+  @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+}
+.badge-positive { @apply bg-emerald-500/20 text-emerald-300 border border-emerald-500/30; }
+.badge-negative { @apply bg-rose-500/20 text-rose-300 border border-rose-500/30; }
