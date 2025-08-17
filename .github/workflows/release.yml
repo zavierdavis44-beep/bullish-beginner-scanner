@@ -1,13 +1,28 @@
-name: Build & Release Windows App
+name: Build & Release App
 
 on:
   push:
     tags:
-      - 'v*.*.*'   # e.g. v0.1.4
+      - 'v*.*.*'     # run on version tags (e.g. v0.1.4)
+  workflow_dispatch:  # allow manual runs
 
 jobs:
   build:
-    runs-on: windows-latest
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            build_cmd: npm run build:win
+            artifact_glob: "dist/*.{exe,msi}"
+          - os: macos-latest
+            build_cmd: npm run build:mac
+            artifact_glob: "dist/*.{dmg,zip,pkg}"
+          - os: ubuntu-latest
+            build_cmd: npm run build:linux
+            artifact_glob: "dist/*.{AppImage,deb,rpm,tar.gz}"
 
     steps:
       - name: Checkout repo
@@ -16,27 +31,54 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '20'
           cache: 'npm'
 
-      - name: Install deps
+      - name: Install deps (CI)
         run: npm ci
 
-      - name: Build (Windows unsigned)
+      # Avoid auto-detecting code sign tools (keeps builds unsigned but smooth)
+      - name: Disable auto code-sign discovery
+        shell: bash
         run: |
-          echo CSC_IDENTITY_AUTO_DISCOVERY=false>> %GITHUB_ENV%
-          npm run build:win
+          echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> $GITHUB_ENV
 
-      - name: Upload artifact (.exe)
+      # -- Windows specific: avoid winCodeSign cache symlink weirdness
+      - name: Prepare Windows env
+        if: startsWith(matrix.os, 'windows')
+        shell: bash
+        run: |
+          echo "ELECTRON_BUILDER_DISABLE_UPDATER=false" >> $GITHUB_ENV
+
+      - name: Build platform
+        run: ${{ matrix.build_cmd }}
+
+      - name: Upload installers
         uses: actions/upload-artifact@v4
         with:
-          name: windows-installer
-          path: dist/*.exe
+          name: ${{ runner.os }}-installers
+          path: ${{ matrix.artifact_glob }}
           if-no-files-found: error
 
-      - name: Publish GitHub Release
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # needed for gh-release
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./dist-bundles
+
+      - name: List artifacts (debug)
+        run: ls -R ./dist-bundles
+
+      - name: Publish Release (attach installers)
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.exe
+          files: |
+            dist-bundles/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
