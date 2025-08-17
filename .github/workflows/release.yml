@@ -3,11 +3,12 @@ name: Build & Release Windows App
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v*.*.*'   # e.g. v0.1.3
 
 jobs:
   build:
     runs-on: windows-latest
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -18,7 +19,7 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install deps
         run: npm ci
 
       - name: Build (Windows unsigned)
@@ -26,11 +27,13 @@ jobs:
           echo CSC_IDENTITY_AUTO_DISCOVERY=false>> %GITHUB_ENV%
           npm run build:win
 
-      - name: Upload artifact
+      # Helpful for debugging and manual downloads from the run page
+      - name: Upload artifact (.exe)
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer
           path: dist/*.exe
+          if-no-files-found: error
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
