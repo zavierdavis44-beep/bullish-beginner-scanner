@@ -3,7 +3,7 @@ name: Build & Release App
 on:
   push:
     tags:
-      - 'v*.*.*'   # run only when a version tag is pushed
+      - 'v*.*.*'
 
 jobs:
   build:
@@ -25,16 +25,34 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build app
-        run: npm run build
+      - name: Build Electron app
+        run: npm run build:unsigned
 
-      - name: Package app (Electron Builder)
-        run: npm run dist
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Package app
+        run: npm run build:win
+        if: matrix.os == 'windows-latest'
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.os }}-build
           path: dist/**
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
