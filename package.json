@@ -1,6 +1,6 @@
 {
   "name": "bullish-beginner-scanner",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "private": true,
   "type": "module",
   "main": "electron/main.cjs",
@@ -8,29 +8,43 @@
     "dev:web": "vite",
     "dev:electron": "wait-on tcp:5173 && electron electron/main.cjs",
     "dev": "cross-env VITE_DEV_SERVER_URL=http://localhost:5173 concurrently \"npm:dev:web\" \"npm:dev:electron\"",
-
     "typecheck": "tsc -b",
     "build:web": "vite build",
     "build": "npm run typecheck && npm run build:web",
-
-    "pack:win":   "electron-builder -w  --publish never -c.extraMetadata.main=electron/main.cjs",
-    "pack:mac":   "electron-builder -m  --publish never -c.extraMetadata.main=electron/main.cjs",
+    "pack:win": "electron-builder -w  --publish never -c.extraMetadata.main=electron/main.cjs",
+    "pack:mac": "electron-builder -m  --publish never -c.extraMetadata.main=electron/main.cjs",
     "pack:linux": "electron-builder -l  --publish never -c.extraMetadata.main=electron/main.cjs",
-
     "cut:patch": "npm version patch -m \"chore: release %s\" && git push && git push --tags",
     "cut:minor": "npm version minor -m \"chore: release %s\" && git push && git push --tags",
     "cut:major": "npm version major -m \"chore: release %s\" && git push && git push --tags"
   },
   "build": {
     "appId": "com.bullish.beginner.scanner",
-    "directories": { "output": "dist" },
+    "directories": {
+      "output": "dist"
+    },
     "files": [
       "dist/**",
       "electron/**"
     ],
-    "win":   { "target": ["nsis"],     "artifactName": "BullishScanner-${version}-win.${ext}" },
-    "mac":   { "target": ["dmg"],      "artifactName": "BullishScanner-${version}-mac.${ext}" },
-    "linux": { "target": ["AppImage"], "artifactName": "BullishScanner-${version}-linux.${ext}" }
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "BullishScanner-${version}-win.${ext}"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "artifactName": "BullishScanner-${version}-mac.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "artifactName": "BullishScanner-${version}-linux.${ext}"
+    }
   },
   "dependencies": {
     "react": "18.2.0",
