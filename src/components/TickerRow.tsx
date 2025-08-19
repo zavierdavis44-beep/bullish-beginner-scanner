@@ -44,12 +44,12 @@ export const TickerRow: React.FC<{
       </div>
 
       <div className="col-span-2 text-xl font-bold">{ticker}</div>
-      <div className="col-span-1 text-sm opacity-80">${price.toFixed(2)}</div>
+      <div className="col-span-1 text-sm opacity-80">$ {price.toFixed(2)}</div>
 
       <div className="col-span-3 text-xs">
-        <div>Entry: <span className="font-semibold">${signal.targets.entry.toFixed(2)}</span></div>
-        <div>Stop: <span className="text-rose-300">${signal.targets.stop.toFixed(2)}</span></div>
-        <div>TP1/TP2: <span className="text-emerald-300">${signal.targets.t1.toFixed(2)}</span> / <span className="text-emerald-300">${signal.targets.t2.toFixed(2)}</span></div>
+        <div>Entry: <span className="font-semibold">$ {signal.targets.entry.toFixed(2)}</span></div>
+        <div>Stop: <span className="text-rose-300">$ {signal.targets.stop.toFixed(2)}</span></div>
+        <div>TP1/TP2: <span className="text-emerald-300">$ {signal.targets.t1.toFixed(2)}</span> / <span className="text-emerald-300">$ {signal.targets.t2.toFixed(2)}</span></div>
       </div>
 
       <div className="col-span-2 flex items-center gap-2">
@@ -63,7 +63,7 @@ export const TickerRow: React.FC<{
         />
         <div className="text-xs opacity-80 leading-4">
           <div>Shares: <b>{shares}</b></div>
-          <div>→ +${proj.toFixed(2)} @TP1</div>
+          <div>→ +$ {proj.toFixed(2)} @TP1</div>
         </div>
       </div>
 

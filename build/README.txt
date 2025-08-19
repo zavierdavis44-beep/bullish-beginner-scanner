@@ -1,0 +1,1 @@
+Place app icons here (icon.icns, icon.ico, 512x512.png).

@@ -12,6 +12,7 @@ function ema(values: number[], period: number) {
 }
 
 function rsi(values: number[], period=14) {
+  if (values.length < period+1) return Array(values.length).fill(50)
   let gains = 0, losses = 0
   for (let i=1;i<=period;i++){
     const diff = values[i] - values[i-1]
@@ -34,6 +35,27 @@ function rsi(values: number[], period=14) {
   return out
 }
 
+function atr(series: Series, period=14) {
+  if (series.length === 0) return [] as number[]
+  const trs: number[] = []
+  for (let i=0; i<series.length; i++){
+    const c = series[i]
+    const prev = series[i-1]
+    const tr = i===0 ? (c.h - c.l) : Math.max(c.h - c.l, Math.abs(c.h - prev.c), Math.abs(c.l - prev.c))
+    trs.push(tr)
+  }
+  // RMA for ATR
+  let out: number[] = []
+  let rma = trs.slice(0, period).reduce((a,b)=>a+b,0) / Math.max(1, Math.min(period, trs.length))
+  out[period-1] = rma
+  for (let i=period; i<trs.length; i++){
+    rma = (rma*(period-1) + trs[i]) / period
+    out[i] = rma
+  }
+  while (out.length < trs.length) out.unshift(out[0] ?? trs[0])
+  return out
+}
+
 export type SignalExplanation = {
   score: number // 0-100
   verdict: 'Strong'|'Moderate'|'Weak'|'Avoid'
@@ -41,30 +63,49 @@ export type SignalExplanation = {
   targets: { entry: number, stop: number, t1: number, t2: number }
 }
 
-// Very simple scoring: confluence of EMA cross, RSI regime, and trend slope
+// Smarter scoring: EMA confluence, RSI regime, trend slope, volatility normalization, and volume impulse.
 export function scoreBullish(series: Series): SignalExplanation {
+  if (!series || series.length === 0) {
+    return { score: 0, verdict: 'Avoid', details: [], targets: { entry: 0, stop: 0, t1: 0, t2: 0 } }
+  }
   const closes = series.map(c => c.c)
+  const vols = series.map(c => c.v || 0)
   const ema9 = ema(closes, 9)
   const ema21 = ema(closes, 21)
+  const ema50 = ema(closes, 50)
   const last = closes[closes.length-1]
   const last9 = ema9[ema9.length-1]
   const last21 = ema21[ema21.length-1]
+  const last50 = ema50[ema50.length-1]
   const r = rsi(closes)
   const lastRSI = r[r.length-1]
+  const a = atr(series, 14)
+  const lastATR = a[a.length-1] || 0
 
   const lookback = Math.min(20, closes.length - 1)
   const slope = lookback > 0 ? (closes[closes.length - 1] - closes[closes.length - 1 - lookback]) / lookback : 0
   const emaCross = last9 > last21 ? 1 : 0
+  const emaRegime = last21 > last50 ? 1 : 0
   const rsiBull = lastRSI >= 50 ? 1 : 0
   const slopePos = slope > 0 ? 1 : 0
+  const volAvg = vols.slice(-20).reduce((a,b)=>a+b,0) / Math.max(1, Math.min(20, vols.length))
+  const volImpulse = volAvg>0 ? Math.min(2, (vols[vols.length-1] / volAvg)) - 1 : 0 // -1..1
 
-  const raw = (emaCross*0.45 + rsiBull*0.25 + slopePos*0.30) * 100
-  const score = Math.round(Math.min(100, Math.max(0, raw + (Math.random()*6-3))))
+  // Base score
+  let raw = (emaCross*0.35 + emaRegime*0.15 + rsiBull*0.20 + slopePos*0.20 + (Math.max(0, volImpulse))*0.10) * 100
+  // Normalize by ATR relative to price: very high vol conditions reduce confidence slightly
+  const atrPct = last ? (lastATR / last) : 0
+  raw -= Math.min(15, atrPct*100) * 0.25
 
+  const score = Math.round(Math.min(100, Math.max(0, raw)))
+
+  // Targets based on ATR and structure
   const entry = last
-  const stop = Math.max(...closes.slice(-20)) * 0.92 // rough swing low buffer
-  const t1 = entry * 1.03
-  const t2 = entry * 1.06
+  const stop = Math.min(...closes.slice(-20)) || last * 0.94
+  const stopBuf = Math.max(last*0.01, lastATR*0.5)
+  const safeStop = Math.max(0.01, Math.min(entry - stopBuf, stop))
+  const t1 = entry + Math.max(last*0.01, lastATR*0.5)
+  const t2 = entry + Math.max(last*0.02, lastATR*1.0)
 
   let verdict: SignalExplanation['verdict'] = 'Avoid'
   if (score >= 75) verdict = 'Strong'
@@ -75,10 +116,12 @@ export function scoreBullish(series: Series): SignalExplanation {
     score,
     verdict,
     details: [
-      { label: 'EMA(9) vs EMA(21)', value: last9.toFixed(2)+' > '+last21.toFixed(2) },
+      { label: 'EMA(9) > EMA(21)', value: (last9>last21)+' ('+last9.toFixed(2)+'/'+last21.toFixed(2)+')' },
+      { label: 'EMA(21) > EMA(50)', value: (last21>last50)+' ('+last21.toFixed(2)+'/'+last50.toFixed(2)+')' },
       { label: 'RSI(14)', value: lastRSI.toFixed(1) },
-      { label: 'Short-term slope', value: slope.toFixed(3) },
+      { label: 'Slope(20)', value: slope.toFixed(3) },
+      { label: 'ATR(14)/Price', value: (atrPct*100).toFixed(2)+'%' },
     ],
-    targets: { entry, stop, t1, t2 }
+    targets: { entry, stop: safeStop, t1, t2 }
   }
 }

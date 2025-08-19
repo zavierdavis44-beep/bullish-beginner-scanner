@@ -26,6 +26,45 @@ export const MockProvider: DataProvider = {
   }
 }
 
+// Simple Polygon.io provider (requires VITE_POLYGON_KEY)
+export const PolygonProvider: DataProvider = {
+  async fetchSeries(ticker, kind, interval, lookback) {
+    const apiKey = (import.meta as any).env?.VITE_POLYGON_KEY
+    if (!apiKey) return MockProvider.fetchSeries(ticker, kind, interval, lookback)
+    try {
+      const timespan = interval === '1m' ? 'minute'
+        : interval === '5m' ? 'minute'
+        : interval === '1h' ? 'hour'
+        : 'day'
+      const multiplier = interval === '5m' ? 5 : 1
+      const msPerCandle = interval === '1h' ? 60*60_000 : interval === '1d' ? 24*60*60_000 : 60_000
+      const to = new Date().toISOString()
+      const from = new Date(Date.now() - lookback * msPerCandle).toISOString()
+      const polyTicker = kind === 'crypto' ? (ticker.startsWith('X:') ? ticker : `X:${ticker}`) : ticker
+      const url = `https://api.polygon.io/v2/aggs/ticker/${polyTicker}/range/${multiplier}/${timespan}/${from}/${to}?adjusted=true&sort=asc&apiKey=${apiKey}`
+      const res = await fetch(url)
+      if (!res.ok) throw new Error(`Polygon error ${res.status}`)
+      const json = await res.json()
+      const results = (json.results||[]) as any[]
+      return results.map(r => ({ t: r.t, o: r.o, h: r.h, l: r.l, c: r.c, v: r.v })) as Series
+    } catch (e) {
+      return MockProvider.fetchSeries(ticker, kind, interval, lookback)
+    }
+  }
+}
+
+export function getProvider(): DataProvider {
+  try {
+    const env = (import.meta as any).env || {}
+    const prefer = String(env?.VITE_PROVIDER||'').toLowerCase()
+    if (prefer === 'mock') return MockProvider
+    if (prefer === 'polygon') return PolygonProvider
+    const key = env?.VITE_POLYGON_KEY
+    if (key) return PolygonProvider
+  } catch {}
+  return MockProvider
+}
+
 /** Example real provider (Polygon.io)
 import { Candle, Series, DataProvider } from './data'
 export const PolygonProvider: DataProvider = {

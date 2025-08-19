@@ -15,13 +15,26 @@ Open http://localhost:5173
 
 ## Plug in real-time data
 
-Implement a `DataProvider` and swap it in `src/App.tsx`:
+Set a provider and (optionally) a Polygon API key and the app will automatically use real market data; otherwise it falls back to mock data for demos/testing.
 
-```ts
-const provider: DataProvider = PolygonProvider
+1) Copy `.env.example` to `.env` and set any of these:
+```
+# force provider (optional): polygon | mock
+VITE_PROVIDER=polygon
+
+# enable live data (optional if using mock)
+VITE_POLYGON_KEY=your_polygon_api_key
+
+# refresh interval (optional)
+VITE_REFRESH_MS=60000
 ```
 
-Examples and code comments live in `src/lib/data.ts` (Polygon example included).
+2) Run the app. `getProvider()` in `src/lib/data.ts` auto-selects:
+   - `VITE_PROVIDER=mock` → Mock data
+   - `VITE_PROVIDER=polygon` or `VITE_POLYGON_KEY` set → Polygon (stocks + `X:BTCUSD` for crypto)
+   - API errors automatically fall back to mock
+
+See `src/lib/data.ts` for the provider interface and implementation details.
 
 ## Electron packaging + auto-update (optional)
 
