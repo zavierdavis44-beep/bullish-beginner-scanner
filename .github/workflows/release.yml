@@ -19,8 +19,8 @@ build:
         with:
           node-version: 20
           cache: 'npm'
-      - name: Cache Electron caches (Windows)
         uses: actions/cache@v4
+        with:
           path: |
             ~\AppData\Local\electron\Cache
             ~\AppData\Local\electron-builder\Cache
