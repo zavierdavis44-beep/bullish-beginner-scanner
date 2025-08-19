@@ -7,8 +7,9 @@ import type { Series } from '@/lib/data'
 import { scoreBullish } from '@/lib/signal'
 import { Info } from 'lucide-react'
 
+const timeFmt = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' })
 function toChart(series: Series){
-  return series.map(c => ({ t: new Date(c.t).toLocaleTimeString(), c: +c.c.toFixed(2) }))
+  return series.map(c => ({ t: timeFmt.format(new Date(c.t)), c: +c.c.toFixed(2) }))
 }
 
 export const TickerRow: React.FC<{
@@ -19,9 +20,10 @@ export const TickerRow: React.FC<{
   const [investment, setInvestment] = useState(500)
   const chart = useMemo(()=>toChart(series), [series])
   const signal = useMemo(()=>scoreBullish(series), [series])
-  const price = series[series.length-1].c
-  const shares = Math.floor(investment / signal.targets.entry * 100) / 100
-  const proj = shares * (signal.targets.t1 - signal.targets.entry)
+  const price = series.length ? series[series.length-1].c : 0
+  const safeEntry = signal.targets.entry || price || 1
+  const shares = Math.max(0, Math.floor((investment / safeEntry) * 100) / 100)
+  const proj = shares * Math.max(0, (signal.targets.t1 || price) - safeEntry)
 
   return (
     <div className="grid grid-cols-12 gap-3 items-center card p-3">

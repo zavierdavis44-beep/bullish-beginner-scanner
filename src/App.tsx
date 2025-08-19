@@ -50,13 +50,17 @@ export default function App(){
   useEffect(()=>{
     ;(async()=>{
       const seeds = ['AAPL','MSFT','TSLA','BTCUSD']
-      const seeded: WatchItem[] = []
-      for (const s of seeds.slice(0,3)){
+      const firstThree = seeds.slice(0,3)
+      const entries = await Promise.all(firstThree.map(async (s)=>{
         const k: 'stock'|'crypto' = s.includes('USD') ? 'crypto' : 'stock'
-        const series = await provider.fetchSeries(s, k, '5m', 180)
-        seeded.push({ ticker: s, kind: k, series })
-      }
-      setWatch(seeded)
+        try {
+          const series = await provider.fetchSeries(s, k, '5m', 180)
+          return { ticker: s, kind: k, series } as WatchItem
+        } catch {
+          return null
+        }
+      }))
+      setWatch(entries.filter(Boolean) as WatchItem[])
     })()
   },[])
 
