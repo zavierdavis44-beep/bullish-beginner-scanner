@@ -1,23 +1,17 @@
-name: Build & Publish (Win/Mac/Linux)
+name: Build & Publish (Windows)
 
 on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            args: -w
-          - os: macos-latest
-            args: -m
-          - os: ubuntu-latest
-            args: -l
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -38,4 +32,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npx electron-builder ${{ matrix.args }} --publish always -c.extraMetadata.main=electron/main.cjs
+        run: npx electron-builder -w --publish always -c.extraMetadata.main=electron/main.cjs
