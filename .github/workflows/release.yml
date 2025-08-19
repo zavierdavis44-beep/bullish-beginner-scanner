@@ -2,7 +2,7 @@ name: Build & Publish (Windows)
 on:
 push:
     tags:
-      - "v0.1.21"
+      - "v*.*.*"
 workflow_dispatch:
 permissions:
 contents: write
@@ -22,7 +22,6 @@ build:
       - name: Cache Electron caches (Windows)
         uses: actions/cache@v4
         with:
-          path: |
             ~\AppData\Local\electron\Cache
             ~\AppData\Local\electron-builder\Cache
           key: ${{ runner.os }}-electron-cache-${{ hashFiles('package-lock.json') }}
@@ -33,6 +32,7 @@ build:
       - name: Build and publish release (electron-builder)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npx electron-builder -w --publish always -c.extraMetadata.main=electron/main.cjs
       - name: Upload dist artifacts
         if: always()
