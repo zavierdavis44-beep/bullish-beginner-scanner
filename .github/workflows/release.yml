@@ -1,10 +1,8 @@
-Use exactly this if you need to paste online again:
-
 name: Build & Publish (Windows)
 on:
 push:
     tags:
-      - "v*.*.*"
+      - "v0.1.21"
 workflow_dispatch:
 permissions:
 contents: write
@@ -26,6 +24,7 @@ build:
         with:
           path: |
             ~\AppData\Local\electron\Cache
+            ~\AppData\Local\electron-builder\Cache
           key: ${{ runner.os }}-electron-cache-${{ hashFiles('package-lock.json') }}
       - name: Install dependencies
         run: npm ci
@@ -34,7 +33,6 @@ build:
       - name: Build and publish release (electron-builder)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npx electron-builder -w --publish always -c.extraMetadata.main=electron/main.cjs
       - name: Upload dist artifacts
         if: always()
