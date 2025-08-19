@@ -1,3 +1,4 @@
+$yml = @'
 name: Build & Publish (Windows)
 on:
 push:
@@ -19,6 +20,7 @@ build:
         with:
           node-version: 20
           cache: 'npm'
+      - name: Cache Electron caches (Windows)
         uses: actions/cache@v4
         with:
           path: |
@@ -41,3 +43,4 @@ build:
           name: dist-windows
           path: dist/**
           if-no-files-found: warn
+'@
