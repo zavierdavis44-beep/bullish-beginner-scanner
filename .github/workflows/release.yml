@@ -44,6 +44,35 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npx electron-builder -w --publish always -c.extraMetadata.main=electron/main.cjs
 
+      - name: Append checksums to GitHub Release
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const crypto = require('crypto');
+            const distDir = 'dist';
+            if (!fs.existsSync(distDir)) {
+              core.setFailed('dist not found after build');
+              return;
+            }
+            const candidates = fs.readdirSync(distDir).filter(f => /\.(exe|zip|dmg|AppImage)$/i.test(f));
+            if (candidates.length === 0) {
+              core.warning('No installer artifacts found to hash.');
+            }
+            let note = 'SHA-256 checksums:\n';
+            for (const f of candidates) {
+              const p = path.join(distDir, f);
+              const buff = fs.readFileSync(p);
+              const hash = crypto.createHash('sha256').update(buff).digest('hex');
+              note += `- ${f}: ${hash}\n`;
+            }
+            const tag = context.ref.replace('refs/tags/','');
+            const rel = await github.rest.repos.getReleaseByTag({ owner: context.repo.owner, repo: context.repo.repo, tag });
+            const newBody = ((rel.data.body || '') + '\n\n' + note).trim();
+            await github.rest.repos.updateRelease({ owner: context.repo.owner, repo: context.repo.repo, release_id: rel.data.id, body: newBody });
+
       - name: Upload dist artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -51,4 +80,3 @@ jobs:
           name: dist-windows
           path: dist/**
           if-no-files-found: warn
-
