@@ -5,6 +5,7 @@ import { Button } from './ui/Button'
 import { Input } from './ui/Input'
 import type { Series } from '@/lib/data'
 import { scoreBullish } from '@/lib/signal'
+import { worthTaking, probHitTP1FromScore, expectedValuePerShare, riskReward, forecastLinear } from '@/lib/edge'
 import { Info } from 'lucide-react'
 
 const timeFmt = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' })
@@ -24,6 +25,11 @@ export const TickerRow: React.FC<{
   const safeEntry = signal.targets.entry || price || 1
   const shares = Math.max(0, Math.floor((investment / safeEntry) * 100) / 100)
   const proj = shares * Math.max(0, (signal.targets.t1 || price) - safeEntry)
+  const edge = worthTaking(signal.score, safeEntry, signal.targets.stop || price*0.95, signal.targets.t1 || price*1.02)
+  const pTP1 = probHitTP1FromScore(signal.score)
+  const rr = riskReward(safeEntry, signal.targets.stop || price*0.95, signal.targets.t1 || price*1.02)
+  const ev = expectedValuePerShare(safeEntry, signal.targets.stop || price*0.95, signal.targets.t1 || price*1.02, pTP1)
+  const fc = forecastLinear(series, 2)
 
   return (
     <div className="grid grid-cols-12 gap-3 items-center card p-3">
@@ -67,7 +73,15 @@ export const TickerRow: React.FC<{
         </div>
       </div>
 
-      <div className="col-span-1 flex items-center justify-end gap-2">
+      <div className="col-span-3 flex items-center justify-end gap-3">
+        <div className={`text-xs px-2 py-1 rounded-full border ${edge.ok ? 'border-emerald-500/40 text-emerald-300' : 'border-rose-500/40 text-rose-300'}`}>
+          Worth It: <b>{edge.ok ? 'Yes' : 'No'}</b>
+        </div>
+        <div className="text-[11px] opacity-80">
+          <div>Prob TP1: <b>{(pTP1*100).toFixed(0)}%</b></div>
+          <div>R:R: <b>{rr.toFixed(2)}</b> • EV/Share: <b>$ {ev.toFixed(2)}</b></div>
+          <div>Forecast next: <b>$ {fc.next.length?fc.next[0].toFixed(2):'-'}</b></div>
+        </div>
         <span className={signal.score>=60?'badge badge-positive':'badge badge-negative'}>{signal.verdict} · {signal.score}</span>
         <QPopover trigger={<button aria-label="Explain" className="rounded-full p-2 hover:bg-slate-800/60"><Info size={16} /></button>}>
           <div className="space-y-1">
