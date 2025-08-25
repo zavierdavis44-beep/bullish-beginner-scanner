@@ -10,7 +10,7 @@ body {
   @apply bg-slate-950 text-slate-100;
 }
 .card {
-  @apply rounded-2xl border border-slate-800/60 bg-slate-900/60 shadow-lg shadow-black/40 backdrop-blur;
+  @apply rounded-2xl border border-slate-800/60 bg-slate-900/60 shadow-lg shadow-black/40 backdrop-blur transition-all duration-300 ease-out;
 }
 .glow {
   box-shadow: 0 0 50px rgba(0, 240, 255, 0.08), inset 0 0 20px rgba(0, 240, 255, 0.06);
@@ -20,3 +20,18 @@ body {
 }
 .badge-positive { @apply bg-emerald-500/20 text-emerald-300 border border-emerald-500/30; }
 .badge-negative { @apply bg-rose-500/20 text-rose-300 border border-rose-500/30; }
+
+/* Subtle UI polish */
+.card:hover { transform: translateY(-1px); }
+.fade-in { animation: fadeIn .4s ease-out both; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: translateY(0) } }
+
+/* Shimmer for loading skeletons */
+.shimmer { position: relative; overflow: hidden; }
+.shimmer::after {
+  content: "";
+  position: absolute; inset: 0; translate: -100% 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.06), transparent);
+  animation: shimmer 1.6s infinite;
+}
+@keyframes shimmer { 100% { translate: 100% 0 } }

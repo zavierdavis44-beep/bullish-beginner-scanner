@@ -29,7 +29,9 @@ export const MockProvider: DataProvider = {
 // Simple Polygon.io provider (requires VITE_POLYGON_KEY)
 export const PolygonProvider: DataProvider = {
   async fetchSeries(ticker, kind, interval, lookback) {
-    const apiKey = (import.meta as any).env?.VITE_POLYGON_KEY
+    let apiKey: string | undefined
+    try { apiKey = window?.localStorage?.getItem?.('bbs.polygonKey') || undefined } catch {}
+    if (!apiKey) apiKey = (import.meta as any).env?.VITE_POLYGON_KEY
     if (!apiKey) return MockProvider.fetchSeries(ticker, kind, interval, lookback)
     try {
       const timespan = interval === '1m' ? 'minute'
@@ -37,7 +39,7 @@ export const PolygonProvider: DataProvider = {
         : interval === '1h' ? 'hour'
         : 'day'
       const multiplier = interval === '5m' ? 5 : 1
-      const msPerCandle = interval === '1h' ? 60*60_000 : interval === '1d' ? 24*60*60_000 : 60_000
+      const msPerCandle = interval === '1m' ? 60_000 : interval === '5m' ? 5*60_000 : interval === '1h' ? 60*60_000 : 24*60*60_000
       const to = new Date().toISOString()
       const from = new Date(Date.now() - lookback * msPerCandle).toISOString()
       const polyTicker = kind === 'crypto' ? (ticker.startsWith('X:') ? ticker : `X:${ticker}`) : ticker
@@ -53,16 +55,73 @@ export const PolygonProvider: DataProvider = {
   }
 }
 
+function hasDesktopFetch(){
+  try { return typeof (window as any)?.desktop?.fetchJson === 'function' } catch { return false }
+}
+async function fetchJson(url: string){
+  try {
+    if (hasDesktopFetch()){
+      // @ts-ignore
+      const data = await (window as any).desktop.fetchJson(url)
+      if (data && (data as any).__error) throw new Error((data as any).message||'Fetch failed')
+      return data
+    }
+    const res = await fetch(url)
+    if (!res.ok) throw new Error('HTTP '+res.status)
+    return await res.json()
+  } catch (e){ throw e }
+}
+
+// Free provider using public endpoints: Yahoo Finance for stocks, Binance for crypto
+export const FreeProvider: DataProvider = {
+  async fetchSeries(ticker, kind, interval, lookback){
+    if (kind === 'crypto'){
+      // Binance: convert BTCUSD -> BTCUSDT by default
+      const symbol = ticker.endsWith('USDT') ? ticker : ticker.replace('USD','USDT')
+      const i = interval === '1m' ? '1m' : interval === '5m' ? '5m' : interval === '1h' ? '1h' : '1d'
+      const limit = Math.min(1000, lookback)
+      const url = `https://api.binance.com/api/v3/klines?symbol=${encodeURIComponent(symbol)}&interval=${i}&limit=${limit}`
+      const json = await fetchJson(url)
+      if (!Array.isArray(json)) throw new Error('Binance error')
+      return json.map((k: any[])=>({ t: k[0], o:+k[1], h:+k[2], l:+k[3], c:+k[4], v:+k[5] })) as Series
+    }
+    // Stocks via Yahoo Finance chart API
+    const i = interval === '1m' ? '1m' : interval === '5m' ? '5m' : interval === '1h' ? '60m' : '1d'
+    // Choose a range that covers lookback
+    const range = interval === '1d' ? '1mo' : interval === '1h' ? '5d' : '1d'
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${i}&range=${range}`
+    const json = await fetchJson(url)
+    const r = json?.chart?.result?.[0]
+    const ts: number[] = r?.timestamp || []
+    const o = r?.indicators?.quote?.[0]?.open || []
+    const h = r?.indicators?.quote?.[0]?.high || []
+    const l = r?.indicators?.quote?.[0]?.low || []
+    const c = r?.indicators?.quote?.[0]?.close || []
+    const v = r?.indicators?.quote?.[0]?.volume || []
+    const series: Series = []
+    for (let i=0;i<ts.length;i++){
+      series.push({ t: ts[i]*1000, o:+(o[i]??c[i]??0), h:+(h[i]??c[i]??0), l:+(l[i]??c[i]??0), c:+(c[i]??0), v:+(v[i]??0) })
+    }
+    return series.slice(-lookback)
+  }
+}
+
 export function getProvider(): DataProvider {
   try {
+    let prefer = ''
+    try { prefer = String(window?.localStorage?.getItem?.('bbs.provider')||'').toLowerCase() } catch {}
     const env = (import.meta as any).env || {}
-    const prefer = String(env?.VITE_PROVIDER||'').toLowerCase()
+    if (!prefer) prefer = String(env?.VITE_PROVIDER||'').toLowerCase()
+    if (prefer === 'free') return FreeProvider
     if (prefer === 'mock') return MockProvider
     if (prefer === 'polygon') return PolygonProvider
-    const key = env?.VITE_POLYGON_KEY
+    const key = ((): string|undefined => {
+      try { return window?.localStorage?.getItem?.('bbs.polygonKey') || undefined } catch { return env?.VITE_POLYGON_KEY }
+    })()
     if (key) return PolygonProvider
+    return FreeProvider
   } catch {}
-  return MockProvider
+  return FreeProvider
 }
 
 /** Example real provider (Polygon.io)

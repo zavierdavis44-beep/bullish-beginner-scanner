@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron')
 const path = require('node:path')
 const { autoUpdater } = require('electron-updater')
+const https = require('node:https')
 
 let win = null
 
@@ -33,8 +34,9 @@ function createWindow () {
 
 app.on('ready', async () => {
   createWindow()
+  // Enable background download and silent install on availability
   autoUpdater.autoDownload = true
-  try { await autoUpdater.checkForUpdatesAndNotify() } catch {}
+  try { await autoUpdater.checkForUpdates().catch(()=>{}) } catch {}
   setInterval(()=>autoUpdater.checkForUpdates().catch(()=>{}), 30*60*1000)
 })
 
@@ -53,4 +55,31 @@ ipcMain.handle('app:check-updates', async () => {
   } catch (e) {
     return { ok: false, error: e?.message || String(e) }
   }
+})
+
+// Simple JSON fetch via main process to avoid CORS in renderer
+ipcMain.handle('net:json', async (_evt, url) => {
+  try {
+    const res = await fetch(url)
+    if (!res.ok) throw new Error('HTTP '+res.status)
+    return await res.json()
+  } catch (e) {
+    return { __error: true, message: e?.message || String(e) }
+  }
+})
+
+// Update lifecycle: auto-download and restart once ready
+autoUpdater.on('update-available', () => {
+  try { win?.webContents.send('app:update-status', { status: 'available' }) } catch {}
+})
+autoUpdater.on('download-progress', (p) => {
+  try { win?.webContents.send('app:update-status', { status: 'downloading', progress: p?.percent||0 }) } catch {}
+})
+autoUpdater.on('update-downloaded', () => {
+  try { win?.webContents.send('app:update-status', { status: 'ready' }) } catch {}
+  // Install silently and relaunch app (Windows NSIS supports silent run-after)
+  try { autoUpdater.quitAndInstall(true, true) } catch {}
+})
+autoUpdater.on('error', (err) => {
+  try { win?.webContents.send('app:update-status', { status: 'error', message: err?.message||String(err) }) } catch {}
 })

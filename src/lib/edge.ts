@@ -1,8 +1,11 @@
 import type { Series } from './data'
+import { getCalibratedProb } from './learn'
 
 // Map signal score (0-100) to probability of hitting TP1 before Stop.
 // This is a simple logistic shaping you can calibrate later.
 export function probHitTP1FromScore(score: number) {
+  const learned = getCalibratedProb(score)
+  if (typeof learned === 'number' && Number.isFinite(learned)) return learned
   const k = 0.09 // slope of logistic
   const x0 = 60   // mid-point (50% at score ~60)
   const p = 1 / (1 + Math.exp(-k * (score - x0)))
@@ -48,4 +51,3 @@ export function worthTaking(score: number, entry: number, stop: number, t1: numb
   const ok = ev > 0 && rr >= 1.2 && p >= 0.5
   return { ok, rr, p, ev }
 }
-

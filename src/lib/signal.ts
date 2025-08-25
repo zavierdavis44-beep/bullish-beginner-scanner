@@ -1,6 +1,6 @@
 import type { Series } from './data'
 
-function ema(values: number[], period: number) {
+export function ema(values: number[], period: number) {
   const k = 2 / (period + 1)
   let emaPrev = values[0]
   const out = [emaPrev]
@@ -11,7 +11,7 @@ function ema(values: number[], period: number) {
   return out
 }
 
-function rsi(values: number[], period=14) {
+export function rsi(values: number[], period=14) {
   if (values.length < period+1) return Array(values.length).fill(50)
   let gains = 0, losses = 0
   for (let i=1;i<=period;i++){

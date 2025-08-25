@@ -15,12 +15,12 @@ Open http://localhost:5173
 
 ## Plug in real-time data
 
-Set a provider and (optionally) a Polygon API key and the app will automatically use real market data; otherwise it falls back to mock data for demos/testing.
+By default the app uses a Free provider (Yahoo for stocks, Binance for crypto) — no signup needed. You can also set a provider and (optionally) a Polygon API key to use Polygon.
 
 1) Copy `.env.example` to `.env` and set any of these:
 ```
-# force provider (optional): polygon | mock
-VITE_PROVIDER=polygon
+# force provider (optional): free | polygon | mock
+VITE_PROVIDER=free
 
 # enable live data (optional if using mock)
 VITE_POLYGON_KEY=your_polygon_api_key
@@ -31,6 +31,7 @@ VITE_REFRESH_MS=60000
 
 2) Run the app. `getProvider()` in `src/lib/data.ts` auto-selects:
    - `VITE_PROVIDER=mock` → Mock data
+   - `VITE_PROVIDER=free` → Free provider (Yahoo/Binance)
    - `VITE_PROVIDER=polygon` or `VITE_POLYGON_KEY` set → Polygon (stocks + `X:BTCUSD` for crypto)
    - API errors automatically fall back to mock
 

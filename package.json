@@ -1,6 +1,6 @@
 {
   "name": "bullish-beginner-scanner",
-  "version": "0.1.23",
+  "version": "0.1.25",
   "private": true,
   "type": "module",
   "description": "Beginner-friendly bullish scanner with Electron packaging and auto-update.",
@@ -24,12 +24,13 @@
     "cut:major": "npm version major -m \"chore: release %s\" && git push && git push --tags"
   },
   "build": {
-    "appId": "com.bullish.beginner.scanner",
+    "appId": "ai.thezai.desktop",
+    "productName": "THE ZAi",
     "directories": {
       "output": "dist"
     },
     "publish": [
-      { "provider": "github" }
+      { "provider": "github", "owner": "zavierdavis44-beep", "repo": "bullish-beginner-scanner" }
     ],
     "files": [
       "dist/**",
@@ -39,19 +40,20 @@
       "target": [
         "nsis"
       ],
-      "artifactName": "BullishScanner-${version}-win.${ext}"
+      "artifactName": "THE-ZAi-${version}-win.${ext}"
     },
     "mac": {
       "target": [
         "dmg"
       ],
-      "artifactName": "BullishScanner-${version}-mac.${ext}"
+      "artifactName": "THE-ZAi-${version}-mac.${ext}"
     },
     "linux": {
       "target": [
-        "AppImage"
+        "AppImage",
+        "deb"
       ],
-      "artifactName": "BullishScanner-${version}-linux.${ext}"
+      "artifactName": "THE-ZAi-${version}-linux.${ext}"
     }
   },
   "dependencies": {
