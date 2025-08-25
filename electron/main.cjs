@@ -40,7 +40,9 @@ app.on('ready', async () => {
   try {
     autoUpdater.requestHeaders = Object.assign({}, autoUpdater.requestHeaders || {}, {
       'User-Agent': 'THE-ZAi-Updater',
-      'Accept': 'application/vnd.github+json, application/json, application/atom+xml;q=0.9, */*;q=0.8'
+      // Prefer HTML endpoints GitHub expects for /releases/latest redirects, but allow Atom/API too
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,application/atom+xml;q=0.9,application/json;q=0.8,*/*;q=0.7',
+      'Accept-Encoding': 'gzip, deflate, br'
     })
   } catch {}
   try { await autoUpdater.checkForUpdates().catch(()=>{}) } catch {}
