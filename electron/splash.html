@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>THE ZAi • Loading…</title>
+    <style>
+      html, body { height: 100%; margin: 0; background: #0b1220; color: #e5edf5; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"; }
+      .wrap { height: 100%; display: grid; place-items: center; }
+      .card { background: rgba(12,18,32,.7); border: 1px solid rgba(100,116,139,.3); border-radius: 16px; padding: 28px 36px; box-shadow: 0 0 60px rgba(0,240,255,.08), inset 0 0 20px rgba(0,240,255,.06); }
+      .logo { width: 54px; height: 54px; border-radius: 14px; background: #00F0FF; display: grid; place-items: center; color: #0b1220; font-weight: 900; }
+      .title { font-size: 20px; font-weight: 800; margin-top: 12px; letter-spacing: .4px; }
+      .sub { font-size: 12px; opacity: .7; margin-top: 2px; }
+      .bar { margin-top: 18px; height: 4px; width: 220px; background: rgba(100,116,139,.25); border-radius: 999px; overflow: hidden; }
+      .bar > div { height: 100%; width: 40%; background: linear-gradient(90deg, #00F0FF, #8B5CF6); border-radius: 999px; animation: load 1.2s ease-in-out infinite; }
+      @keyframes load { 0% { transform: translateX(-40%);} 50% { transform: translateX(60%);} 100% { transform: translateX(120%);} }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card" role="img" aria-label="Launching THE ZAi">
+        <div class="logo">Z</div>
+        <div class="title">THE ZAi</div>
+        <div class="sub">Smart Bullish Scanner</div>
+        <div class="bar"><div></div></div>
+      </div>
+    </div>
+  </body>
+  </html>
+

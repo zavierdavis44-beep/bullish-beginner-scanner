@@ -2,7 +2,7 @@
 
 A futuristic-looking beginner-friendly scanner for stocks & crypto. Add up to 10 tickers, see a mini chart, AI-ish bullish score, entry/stop/targets, and a position size calculator. Includes an **AI Suggestions** bar highlighting top picks.
 
-> **Note:** This project ships with a **mock data provider**. Swap it for a real data provider (Polygon/Alpaca/Binance/Finnhub) before live use.
+> Note: This project now uses only live data providers.
 
 ## Quick start
 
@@ -19,7 +19,7 @@ By default the app uses a Free provider (Yahoo for stocks, Binance for crypto) �
 
 1) Copy `.env.example` to `.env` and set any of these:
 ```
-# force provider (optional): free | polygon | mock
+# force provider (optional): free | polygon
 VITE_PROVIDER=free
 
 # enable live data (optional if using mock)
@@ -30,10 +30,9 @@ VITE_REFRESH_MS=60000
 ```
 
 2) Run the app. `getProvider()` in `src/lib/data.ts` auto-selects:
-   - `VITE_PROVIDER=mock` → Mock data
    - `VITE_PROVIDER=free` → Free provider (Yahoo/Binance)
    - `VITE_PROVIDER=polygon` or `VITE_POLYGON_KEY` set → Polygon (stocks + `X:BTCUSD` for crypto)
-   - API errors automatically fall back to mock
+   - API errors automatically fall back to Free
 
 See `src/lib/data.ts` for the provider interface and implementation details.
 

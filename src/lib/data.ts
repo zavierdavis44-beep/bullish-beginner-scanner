@@ -6,33 +6,13 @@ export interface DataProvider {
   fetchSeries: (ticker: string, kind: 'stock'|'crypto', interval: '1m'|'5m'|'1h'|'1d', lookback: number) => Promise<Series>
 }
 
-// Mock provider: generates vaguely realistic uptrending/downtrending data
-export const MockProvider: DataProvider = {
-  async fetchSeries(ticker, kind, interval, lookback) {
-    const now = Date.now()
-    const candles: Series = []
-    let price = Math.max(5, Math.random() * 150)
-    for (let i=lookback; i>0; i--) {
-      const t = now - i * 60_000
-      const drift = (Math.sin(i/20) + Math.random()*0.4 - 0.2) * (price*0.002)
-      price = Math.max(0.5, price + drift)
-      const o = price * (1 - (Math.random()*0.01))
-      const c = price * (1 + (Math.random()*0.01))
-      const h = Math.max(o, c) * (1 + Math.random()*0.01)
-      const l = Math.min(o, c) * (1 - Math.random()*0.01)
-      candles.push({ t, o, h, l, c, v: Math.random()*1e6 })
-    }
-    return candles
-  }
-}
-
 // Simple Polygon.io provider (requires VITE_POLYGON_KEY)
 export const PolygonProvider: DataProvider = {
   async fetchSeries(ticker, kind, interval, lookback) {
     let apiKey: string | undefined
     try { apiKey = window?.localStorage?.getItem?.('bbs.polygonKey') || undefined } catch {}
     if (!apiKey) apiKey = (import.meta as any).env?.VITE_POLYGON_KEY
-    if (!apiKey) return MockProvider.fetchSeries(ticker, kind, interval, lookback)
+    if (!apiKey) return FreeProvider.fetchSeries(ticker, kind, interval, lookback)
     try {
       const timespan = interval === '1m' ? 'minute'
         : interval === '5m' ? 'minute'
@@ -50,7 +30,7 @@ export const PolygonProvider: DataProvider = {
       const results = (json.results||[]) as any[]
       return results.map(r => ({ t: r.t, o: r.o, h: r.h, l: r.l, c: r.c, v: r.v })) as Series
     } catch (e) {
-      return MockProvider.fetchSeries(ticker, kind, interval, lookback)
+      return FreeProvider.fetchSeries(ticker, kind, interval, lookback)
     }
   }
 }
@@ -76,14 +56,43 @@ async function fetchJson(url: string){
 export const FreeProvider: DataProvider = {
   async fetchSeries(ticker, kind, interval, lookback){
     if (kind === 'crypto'){
-      // Binance: convert BTCUSD -> BTCUSDT by default
-      const symbol = ticker.endsWith('USDT') ? ticker : ticker.replace('USD','USDT')
+      // Normalize common crypto inputs: XRP -> XRPUSDT, BTC-USD -> BTCUSDT, X:BTCUSD -> BTCUSDT
+      function normCryptoSymbols(t: string){
+        let s = String(t||'').toUpperCase().trim()
+        s = s.replace(/^X:/, '')
+        s = s.replace(/[-_]/g, '')
+        let binance = s
+        if (binance.endsWith('USDT')) { /* ok */ }
+        else if (binance.endsWith('USD')) binance = binance.replace(/USD$/, 'USDT')
+        else binance = binance + 'USDT'
+        const yahoo = s.endsWith('USD') ? s.replace(/USD$/, '-USD') : (s.endsWith('USDT') ? s.replace(/USDT$/, '-USD') : (s + '-USD'))
+        return { binance, yahoo }
+      }
+      const { binance, yahoo } = normCryptoSymbols(ticker)
       const i = interval === '1m' ? '1m' : interval === '5m' ? '5m' : interval === '1h' ? '1h' : '1d'
       const limit = Math.min(1000, lookback)
-      const url = `https://api.binance.com/api/v3/klines?symbol=${encodeURIComponent(symbol)}&interval=${i}&limit=${limit}`
-      const json = await fetchJson(url)
-      if (!Array.isArray(json)) throw new Error('Binance error')
-      return json.map((k: any[])=>({ t: k[0], o:+k[1], h:+k[2], l:+k[3], c:+k[4], v:+k[5] })) as Series
+      try {
+        const url = `https://api.binance.com/api/v3/klines?symbol=${encodeURIComponent(binance)}&interval=${i}&limit=${limit}`
+        const json = await fetchJson(url)
+        if (!Array.isArray(json)) throw new Error('Binance error')
+        return json.map((k: any[])=>({ t: k[0], o:+k[1], h:+k[2], l:+k[3], c:+k[4], v:+k[5] })) as Series
+      } catch {
+        // Fallback to Yahoo Finance crypto chart (e.g., XRP-USD)
+        const yi = interval === '1m' ? '1m' : interval === '5m' ? '5m' : interval === '1h' ? '60m' : '1d'
+        const range = interval === '1d' ? '1mo' : interval === '1h' ? '5d' : '1d'
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahoo)}?interval=${yi}&range=${range}`
+        const json = await fetchJson(url)
+        const r = json?.chart?.result?.[0]
+        const ts: number[] = r?.timestamp || []
+        const o = r?.indicators?.quote?.[0]?.open || []
+        const h = r?.indicators?.quote?.[0]?.high || []
+        const l = r?.indicators?.quote?.[0]?.low || []
+        const c = r?.indicators?.quote?.[0]?.close || []
+        const v = r?.indicators?.quote?.[0]?.volume || []
+        const out: Series = []
+        for (let idx=0; idx<ts.length; idx++) out.push({ t: ts[idx]*1000, o:+(o[idx]??c[idx]??0), h:+(h[idx]??c[idx]??0), l:+(l[idx]??c[idx]??0), c:+(c[idx]??0), v:+(v[idx]??0) })
+        return out.slice(-lookback)
+      }
     }
     // Stocks via Yahoo Finance chart API
     const i = interval === '1m' ? '1m' : interval === '5m' ? '5m' : interval === '1h' ? '60m' : '1d'
@@ -113,7 +122,6 @@ export function getProvider(): DataProvider {
     const env = (import.meta as any).env || {}
     if (!prefer) prefer = String(env?.VITE_PROVIDER||'').toLowerCase()
     if (prefer === 'free') return FreeProvider
-    if (prefer === 'mock') return MockProvider
     if (prefer === 'polygon') return PolygonProvider
     const key = ((): string|undefined => {
       try { return window?.localStorage?.getItem?.('bbs.polygonKey') || undefined } catch { return env?.VITE_POLYGON_KEY }

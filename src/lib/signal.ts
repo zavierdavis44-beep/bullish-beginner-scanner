@@ -73,10 +73,12 @@ export function scoreBullish(series: Series): SignalExplanation {
   const ema9 = ema(closes, 9)
   const ema21 = ema(closes, 21)
   const ema50 = ema(closes, 50)
+  const ema200 = ema(closes, Math.min(200, Math.max(50, Math.round(series.length*0.6))))
   const last = closes[closes.length-1]
   const last9 = ema9[ema9.length-1]
   const last21 = ema21[ema21.length-1]
   const last50 = ema50[ema50.length-1]
+  const last200 = ema200[ema200.length-1]
   const r = rsi(closes)
   const lastRSI = r[r.length-1]
   const a = atr(series, 14)
@@ -86,26 +88,30 @@ export function scoreBullish(series: Series): SignalExplanation {
   const slope = lookback > 0 ? (closes[closes.length - 1] - closes[closes.length - 1 - lookback]) / lookback : 0
   const emaCross = last9 > last21 ? 1 : 0
   const emaRegime = last21 > last50 ? 1 : 0
+  const htfRegime = last50 > last200 ? 1 : 0
   const rsiBull = lastRSI >= 50 ? 1 : 0
   const slopePos = slope > 0 ? 1 : 0
   const volAvg = vols.slice(-20).reduce((a,b)=>a+b,0) / Math.max(1, Math.min(20, vols.length))
   const volImpulse = volAvg>0 ? Math.min(2, (vols[vols.length-1] / volAvg)) - 1 : 0 // -1..1
 
-  // Base score
-  let raw = (emaCross*0.35 + emaRegime*0.15 + rsiBull*0.20 + slopePos*0.20 + (Math.max(0, volImpulse))*0.10) * 100
+  // Base score with HTF confluence
+  let raw = (emaCross*0.30 + emaRegime*0.15 + htfRegime*0.10 + rsiBull*0.18 + slopePos*0.17 + (Math.max(0, volImpulse))*0.10) * 100
   // Normalize by ATR relative to price: very high vol conditions reduce confidence slightly
   const atrPct = last ? (lastATR / last) : 0
   raw -= Math.min(15, atrPct*100) * 0.25
 
   const score = Math.round(Math.min(100, Math.max(0, raw)))
 
-  // Targets based on ATR and structure
+  // Targets: swing-based stop and R-multiples
+  const swingLook = Math.min(20, series.length)
+  const recentLow = Math.min(...series.slice(-swingLook).map(c=>c.l))
   const entry = last
-  const stop = Math.min(...closes.slice(-20)) || last * 0.94
-  const stopBuf = Math.max(last*0.01, lastATR*0.5)
-  const safeStop = Math.max(0.01, Math.min(entry - stopBuf, stop))
-  const t1 = entry + Math.max(last*0.01, lastATR*0.5)
-  const t2 = entry + Math.max(last*0.02, lastATR*1.0)
+  const stopBuf = Math.max(entry*0.005, lastATR*0.6)
+  const rawStop = Math.min(entry - stopBuf, recentLow - lastATR*0.2)
+  const safeStop = Math.max(0.01, rawStop)
+  const risk = Math.max(0.0001, entry - safeStop)
+  const t1 = entry + Math.max(risk, lastATR*0.8)
+  const t2 = entry + Math.max(2*risk, lastATR*1.5)
 
   let verdict: SignalExplanation['verdict'] = 'Avoid'
   if (score >= 75) verdict = 'Strong'
@@ -118,6 +124,7 @@ export function scoreBullish(series: Series): SignalExplanation {
     details: [
       { label: 'EMA(9) > EMA(21)', value: (last9>last21)+' ('+last9.toFixed(2)+'/'+last21.toFixed(2)+')' },
       { label: 'EMA(21) > EMA(50)', value: (last21>last50)+' ('+last21.toFixed(2)+'/'+last50.toFixed(2)+')' },
+      { label: 'EMA(50) > EMA(HTF)', value: (last50>last200)+' ('+last50.toFixed(2)+'/'+last200.toFixed(2)+')' },
       { label: 'RSI(14)', value: lastRSI.toFixed(1) },
       { label: 'Slope(20)', value: slope.toFixed(3) },
       { label: 'ATR(14)/Price', value: (atrPct*100).toFixed(2)+'%' },

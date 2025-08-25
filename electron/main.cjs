@@ -4,8 +4,22 @@ const { autoUpdater } = require('electron-updater')
 const https = require('node:https')
 
 let win = null
+let splash = null
 
 function createWindow () {
+  // Splash window
+  splash = new BrowserWindow({
+    width: 380,
+    height: 220,
+    frame: false,
+    transparent: false,
+    resizable: false,
+    backgroundColor: '#0b1220',
+    alwaysOnTop: true,
+  })
+  try { splash.loadFile(path.join(__dirname, 'splash.html')) } catch {}
+
+  // Main window
   win = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -30,6 +44,12 @@ function createWindow () {
     shell.openExternal(url)
     return { action: 'deny' }
   })
+
+  // Show main and close splash once ready
+  win.once('ready-to-show', () => {
+    try { win.show() } catch {}
+    try { splash?.close(); splash = null } catch {}
+  })
 }
 
 app.on('ready', async () => {
@@ -44,6 +64,22 @@ app.on('ready', async () => {
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,application/atom+xml;q=0.9,application/json;q=0.8,*/*;q=0.7',
       'Accept-Encoding': 'gzip, deflate, br'
     })
+  } catch {}
+  // Try a robust "generic" feed fallback that points directly at latest.yml
+  try {
+    const owner = 'zavierdavis44-beep'
+    const repo = 'bullish-beginner-scanner'
+    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/releases/latest`, {
+      headers: { 'User-Agent': 'THE-ZAi-Updater', 'Accept': 'application/vnd.github+json' }
+    })
+    if (res.ok){
+      const json = await res.json()
+      const tag = json?.tag_name
+      if (tag && typeof tag === 'string'){
+        const base = `https://github.com/${owner}/${repo}/releases/download/${tag}`
+        try { autoUpdater.setFeedURL({ provider: 'generic', url: base }) } catch {}
+      }
+    }
   } catch {}
   try { await autoUpdater.checkForUpdates().catch(()=>{}) } catch {}
   setInterval(()=>autoUpdater.checkForUpdates().catch(()=>{}), 30*60*1000)

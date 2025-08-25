@@ -1,6 +1,6 @@
 {
   "name": "bullish-beginner-scanner",
-  "version": "0.1.28",
+  "version": "0.1.29",
   "private": true,
   "type": "module",
   "description": "Beginner-friendly bullish scanner with Electron packaging and auto-update.",
