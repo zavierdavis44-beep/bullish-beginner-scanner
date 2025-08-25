@@ -113,7 +113,9 @@ export default function App(){
     } catch {}
     return ()=>{ try { off && off() } catch {} }
   },[])
-    ;(async()=>{
+
+  useEffect(()=>{
+    (async()=>{
       try {
         const raw = localStorage.getItem(STORAGE_WATCH)
         const saved: SavedItem[] | null = raw ? JSON.parse(raw) : null

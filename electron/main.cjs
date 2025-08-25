@@ -36,6 +36,13 @@ app.on('ready', async () => {
   createWindow()
   // Enable background download and silent install on availability
   autoUpdater.autoDownload = true
+  // Some GitHub endpoints require explicit Accept/User-Agent to avoid 406
+  try {
+    autoUpdater.requestHeaders = Object.assign({}, autoUpdater.requestHeaders || {}, {
+      'User-Agent': 'THE-ZAi-Updater',
+      'Accept': 'application/vnd.github+json, application/json, application/atom+xml;q=0.9, */*;q=0.8'
+    })
+  } catch {}
   try { await autoUpdater.checkForUpdates().catch(()=>{}) } catch {}
   setInterval(()=>autoUpdater.checkForUpdates().catch(()=>{}), 30*60*1000)
 })
